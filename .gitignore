@@ -1,0 +1,52 @@
+# Byte-compiled / optimized / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+
+# Claude Code local settings
+.claude/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Local model/experiment artifacts (the committed checkpoint is kept; ignore extras)
+*.pth
+*.ckpt
+*.onnx
+
+# Logs
+*.log
