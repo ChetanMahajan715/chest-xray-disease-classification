@@ -1,204 +1,161 @@
-# Chest X-Ray Disease Classification
+<div align="center">
 
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-DenseNet121-EE4C2C.svg)](https://pytorch.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B.svg)](https://streamlit.io/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+# 🩻 Chest X-Ray Disease Classification
 
-A deep learning project that classifies chest X-ray images into **5 categories** using a
-DenseNet121 convolutional neural network with transfer learning. It ships with a
-Streamlit web app for interactive prediction and **Grad-CAM** visualisations that highlight
-the regions the model focuses on.
+### Explainable deep learning for 5 chest conditions
 
-> ⚠️ **Disclaimer:** This project is for **educational and research purposes only**.
-> It is **not** a medical device and must **not** be used for clinical diagnosis or
-> treatment decisions.
+**A DenseNet121 model that reads a chest X-ray and predicts bacterial pneumonia, COVID-19, tuberculosis, viral
+pneumonia or a normal lung, and shows *where* it looked with Grad-CAM heatmaps.**
 
----
+![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-DenseNet121-EE4C2C?logo=pytorch&logoColor=white)
+![Transfer learning](https://img.shields.io/badge/Transfer_learning-ImageNet-6E40C9)
+![Grad-CAM](https://img.shields.io/badge/Explainability-Grad--CAM-F59E0B)
+![Streamlit](https://img.shields.io/badge/Streamlit-web_app-FF4B4B?logo=streamlit&logoColor=white)
+![Colab](https://img.shields.io/badge/Google_Colab-GPU_training-F9AB00?logo=googlecolab&logoColor=white)
+![Accuracy](https://img.shields.io/badge/best_val_accuracy-97.8%25-16A34A)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## Classes
+</div>
 
-The model predicts one of the following five conditions:
-
-| Class | Description |
-|-------|-------------|
-| `bacterial_pneumonia` | Pneumonia caused by bacterial infection |
-| `covid` | COVID-19 related lung findings |
-| `normal` | Healthy chest X-ray |
-| `tuberculosis` | Tuberculosis findings |
-| `viral_pneumonia` | Pneumonia caused by viral infection |
+> ⚠️ **Disclaimer:** for **educational and research purposes only**. This is not a medical device and must not be
+> used for clinical diagnosis or treatment decisions.
 
 ---
+
+## Overview
+
+Chest X-rays are the most common imaging test in the world, and several serious lung diseases look alike on them.
+This project fine-tunes an ImageNet-pretrained **DenseNet121** to separate **five classes**, and pairs every
+prediction with a **Grad-CAM heatmap** so the model's reasoning can be inspected instead of trusted blindly.
+
+<table>
+  <tr>
+    <td align="center"><img src="Dataset/test/normal/Normal-10001.png" width="140"><br><sub>Normal</sub></td>
+    <td align="center"><img src="Dataset/test/bacterial_pneumonia/person1016_bacteria_2947.jpeg" width="140"><br><sub>Bacterial pneumonia</sub></td>
+    <td align="center"><img src="Dataset/test/viral_pneumonia/Viral%20Pneumonia-1006.png" width="140"><br><sub>Viral pneumonia</sub></td>
+    <td align="center"><img src="Dataset/test/covid/COVID-1012.png" width="140"><br><sub>COVID-19</sub></td>
+    <td align="center"><img src="Dataset/test/tuberculosis/Tuberculosis-102.png" width="140"><br><sub>Tuberculosis</sub></td>
+  </tr>
+</table>
+<p align="center"><sub>One example per class from the test split</sub></p>
+
+## Results
+
+| Metric | Value |
+|---|---|
+| **Best validation accuracy** | **97.8%** (epoch 9 of 10) |
+| Final training accuracy | 98.4% |
+| Validation set | 500 images, 100 per class (balanced) |
+| Checkpoint | best epoch by validation accuracy → `models/densenet121_chestxray.pt` |
+
+<p align="center"><img src="outputs/training_graph.png" alt="Training and validation curves" width="720"></p>
+
+Run `evaluate_model.py` for the full per-class classification report and confusion matrix on the held-out test split.
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Chest X-ray<br>PNG / JPG] --> B[Resize 224×224<br>ImageNet normalisation]
+    B --> C[DenseNet121<br>ImageNet weights<br>fine-tuned]
+    C --> D[Linear head<br>5 classes]
+    D --> E[Softmax<br>class + confidence]
+    C -. gradients of the<br>predicted class .-> F[Grad-CAM<br>denseblock4 last conv]
+    F --> G[Heatmap overlay<br>on the X-ray]
+```
+
+| | |
+|---|---|
+| **Backbone** | `torchvision` DenseNet121, ImageNet-pretrained, classifier replaced by a 5-way `Linear` layer |
+| **Training** | CrossEntropyLoss, Adam (`lr=1e-4`, `weight_decay=1e-5`), fixed seed, optional `--freeze_features` |
+| **Augmentation** | random horizontal flip, small rotations, colour jitter |
+| **Explainability** | Grad-CAM on the last convolution of `denseblock4`: gradients of the predicted class weight the feature maps into a heatmap |
 
 ## Features
-
-- **DenseNet121** backbone pretrained on ImageNet, fine-tuned for 5-class classification.
-- **Streamlit web app** — upload an X-ray and get an instant prediction.
-- **Grad-CAM heatmaps** — visual explanation of which lung regions drove the prediction.
-- **Command-line tools** for training, evaluation, and single-image prediction.
-- **Google Colab notebook** for GPU-accelerated training.
-- Reproducible training with a fixed random seed.
-
----
-
-## Model & Approach
-
-- **Architecture:** DenseNet121 (`torchvision`) with the classifier head replaced by a
-  `Linear` layer sized to the 5 classes.
-- **Transfer learning:** initialised from ImageNet weights; optional `--freeze_features`
-  flag to train only the classifier head.
-- **Input:** RGB images resized to `224 × 224`, normalised with ImageNet mean/std.
-- **Augmentation (train):** random horizontal flip, small rotation, and color jitter.
-- **Loss / optimizer:** CrossEntropyLoss with Adam (`lr=1e-4`, `weight_decay=1e-5`).
-- **Checkpointing:** the best model by validation accuracy is saved to
-  `models/densenet121_chestxray.pt`.
-
-### Results
-
-Trained for 10 epochs, the model reached a **best validation accuracy of ~97.8%**
-(see `models/train_history.json`). Run `evaluate_model.py` to generate a full
-classification report and confusion matrix on the test split.
-
-![Training history](outputs/training_graph.png)
-
----
+- 🖥️ **Streamlit app**: upload an X-ray, get the class, the confidence and a Grad-CAM overlay
+- 🧪 **CLI tools** for training, test-set evaluation and single-image prediction (top-K + heatmap)
+- ☁️ **Colab notebook** for free GPU training
+- 📦 **Trained model included**: predictions work right after install
+- 🔁 **Reproducible** training with a fixed seed and saved training history
 
 ## Dataset
 
-The dataset is organised into `train`, `val`, and `test` splits, each containing one
-folder per class (`torchvision.datasets.ImageFolder` layout):
+Balanced, in `torchvision.datasets.ImageFolder` layout, **3,500 images**:
 
-```text
-Dataset/
-├── train/   (500 images per class — 2,500 total)
-├── val/     (100 images per class —   500 total)
-└── test/    (100 images per class —   500 total)
-```
+| Split | Per class | Total |
+|---|---|---|
+| train | 500 | 2,500 |
+| val | 100 | 500 |
+| test | 100 | 500 |
 
-> **Data source:** The X-ray images were compiled from publicly available chest X-ray
-> datasets on **[Kaggle](https://www.kaggle.com/)**. Please refer to and cite the
-> original dataset authors when redistributing or publishing results. *(Update this
-> section with the exact Kaggle dataset link and citation.)*
+Images were compiled from publicly available chest X-ray datasets on [Kaggle](https://www.kaggle.com/); please
+credit the original dataset authors when redistributing or publishing results.
 
----
+## Tech stack
 
-## Project Structure
+| Area | Technology |
+|---|---|
+| Deep learning | PyTorch, torchvision (DenseNet121) |
+| Explainability | Grad-CAM (custom hooks), OpenCV overlays |
+| Evaluation | scikit-learn, Matplotlib, Seaborn |
+| App | Streamlit, Pillow |
+| Training | Local GPU / CPU or Google Colab |
 
-```text
-Chest X-Ray Disease Classification/
-├── Dataset/                  # train / val / test image folders
-├── models/                   # trained checkpoint + class names + history
-│   ├── densenet121_chestxray.pt
-│   ├── class_names.json
-│   └── train_history.json
-├── outputs/                  # evaluation reports, confusion matrix, Grad-CAM images
-├── app.py                    # Streamlit web app
-├── train_model.py            # training script
-├── train_in_colab.ipynb      # Colab GPU training notebook
-├── evaluate_model.py         # test-set evaluation (report + confusion matrix)
-├── predict.py                # single-image prediction (CLI)
-├── gradcam.py                # Grad-CAM generation utilities
-├── model_utils.py            # shared model / I/O helpers
-├── requirements.txt          # Python dependencies
-├── LICENSE                   # MIT license
-└── README.md
-```
-
----
-
-## Installation
-
-Requires **Python 3.9+**.
+## Getting started
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/<your-username>/chest-xray-disease-classification.git
+git clone https://github.com/ChetanMahajan715/chest-xray-disease-classification.git
 cd chest-xray-disease-classification
-
-# 2. (Recommended) create and activate a virtual environment
 python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-
-# 3. Install dependencies
+# Windows: .venv\Scripts\activate    macOS / Linux: source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-> For GPU training, install the CUDA-enabled build of PyTorch from
-> [pytorch.org](https://pytorch.org/get-started/locally/).
-
----
-
-## Usage
-
-### Run the web app
-
-```bash
 streamlit run app.py
 ```
+For GPU training, install the CUDA build of PyTorch from [pytorch.org](https://pytorch.org/get-started/locally/).
 
-Open the URL shown in the terminal, upload a chest X-ray image, and view the predicted
-class, confidence, and Grad-CAM heatmap.
-
-### Train the model
+### Command-line tools
 
 ```bash
+# train
 python train_model.py --data_dir Dataset --epochs 10 --batch_size 16
-```
+#   options: --image_size, --seed, --model_dir, --freeze_features
 
-Common options: `--image_size`, `--seed`, `--model_dir`, `--freeze_features`.
-For GPU training in the cloud, open `train_in_colab.ipynb` in Google Colab.
-
-### Evaluate on the test set
-
-```bash
+# evaluate on the test split → outputs/classification_report.txt + confusion_matrix.png
 python evaluate_model.py --data_dir Dataset --model_dir models --output_dir outputs
-```
 
-Produces `outputs/classification_report.txt` and `outputs/confusion_matrix.png`.
-
-### Predict a single image
-
-```bash
+# predict one image, top 3 classes + Grad-CAM overlay saved to outputs/
 python predict.py --image path/to/chest_xray.png --show_heatmap --top_k 3
 ```
 
-Prints the top-K predictions and (with `--show_heatmap`) saves a Grad-CAM overlay to
-the `outputs/` directory.
+## Project structure
 
----
+```
+chest-xray-disease-classification/
+├── app.py                 # Streamlit app: upload → prediction → Grad-CAM
+├── train_model.py         # training script (CLI)
+├── train_in_colab.ipynb   # GPU training on Google Colab
+├── evaluate_model.py      # test report + confusion matrix
+├── predict.py             # single-image prediction (CLI)
+├── gradcam.py             # Grad-CAM implementation
+├── model_utils.py         # model building, loading, preprocessing
+├── models/                # trained checkpoint, class names, training history
+├── outputs/               # training graph, reports, heatmaps
+├── Dataset/               # train / val / test, one folder per class
+└── requirements.txt
+```
 
-## How Grad-CAM Works
-
-Grad-CAM (Gradient-weighted Class Activation Mapping) uses the gradients of the predicted
-class flowing into the final convolutional layer of DenseNet121 to produce a heatmap
-highlighting the image regions most influential to the prediction. This adds a layer of
-interpretability to an otherwise black-box model.
-
----
-
-## Tech Stack
-
-- **PyTorch** & **torchvision** — model and training
-- **OpenCV** & **NumPy** — image processing and Grad-CAM overlay
-- **scikit-learn** — evaluation metrics
-- **Matplotlib** & **Seaborn** — plots and confusion matrix
-- **Streamlit** — web interface
-- **Pillow** — image loading
-
----
-
-## License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for
-details.
-
----
+## Possible improvements
+- Report per-class recall and sensitivity on the test split in this README
+- Train on a larger, multi-source dataset and test on an external hospital dataset
+- Calibrated confidence and an "uncertain, refer to a radiologist" threshold
 
 ## Author
 
-**Chetan Mahajan**
+**Chetan Mahajan** · AI / ML engineer
 
-If you find this project useful, consider giving it a ⭐ on GitHub.
+[![GitHub](https://img.shields.io/badge/GitHub-ChetanMahajan715-181717?logo=github)](https://github.com/ChetanMahajan715)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-chetanmahajan715-0A66C2?logo=linkedin)](https://www.linkedin.com/in/chetanmahajan715/)
+
+## License
+[MIT](LICENSE)
